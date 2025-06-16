@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>文件夹展示页面</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script> 
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script> 
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script> 
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+      background-color: #f9fafb;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      border: 1px solid #e5e7eb;
+      background-color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+      overflow: hidden;
+      width: 360px;
+      transition: transform 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      resize: none;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+      color: #374151;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #111827;
+    }
+    input[type='file'] {
+      display: block;
+      margin: 0 auto 20px;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    function App() {
+      const [folders, setFolders] = useState([]);
+
+      const handleFileChange = async (e) => {
+        const files = Array.from(e.target.files);
+        const folderMap = {};
+
+        for (const file of files) {
+          const fullPath = file.webkitRelativePath || file.name;
+          const folderMatch = fullPath.match(/.*\/([^\/]+)\/[^\/]+$/);
+          if (!folderMatch) continue;
+
+          const folderName = folderMatch[1];
+          if (!folderMap[folderName]) folderMap[folderName] = {};
+          const fileName = file.name.toLowerCase();
+
+          if (fileName.startsWith('mk1')) folderMap[folderName].mk1 = file;
+          else if (fileName.startsWith('mk2')) folderMap[folderName].mk2 = file;
+          else if (fileName.startsWith('mu1')) folderMap[folderName].mu1 = file;
+          else if (fileName.startsWith('mu2')) folderMap[folderName].mu2 = file;
+        }
+
+        const processGroup = async (group) => {
+          return {
+            ...group,
+            mk2Text: group.mk2 ? await readFileAsText(group.mk2) : '',
+            mu2Text: group.mu2 ? await readFileAsText(group.mu2) : '',
+          };
+        };
+
+        const processedGroups = await Promise.all(
+          Object.entries(folderMap).map(async ([name, group]) => [
+            name,
+            await processGroup(group),
+          ])
+        );
+
+        setFolders(processedGroups);
+      };
+
+      const readFileAsText = (file) =>
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsText(file);
+        });
+
+      return (
+        <div>
+          <h1>上传文件夹</h1>
+          <input type="file" webkitdirectory directory multiple onChange={handleFileChange} />
+          <div className="container">
+            {folders.length === 0 ? (
+              <p className="text-gray-500">请上传文件夹以查看内容</p>
+            ) : (
+              folders.map(([name, group], index) => (
+                <React.Fragment key={index}>
+                  <div className="card">
+                    <h2 className="text-xl font-semibold p-4">MK1 & MK2 - {name}</h2>
+                    {group.mk1 && <img src={URL.createObjectURL(group.mk1)} alt="MK1" />}
+                    <div className="p-4">
+                      <textarea readOnly>{group.mk2Text}</textarea>
+                    </div>
+                  </div>
+                  <div className="card">
+                    <h2 className="text-xl font-semibold p-4">MU1 & MU2 - {name}</h2>
+                    {group.mu1 && <img src={URL.createObjectURL(group.mu1)} alt="MU1" />}
+                    <div className="p-4">
+                      <textarea readOnly>{group.mu2Text}</textarea>
+                    </div>
+                  </div>
+                </React.Fragment>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
